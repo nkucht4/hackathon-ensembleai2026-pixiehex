@@ -13,7 +13,6 @@ ENDPOINT = "task4"
 
 API_TOKEN = os.getenv("TEAM_TOKEN")
 SERVER_URL = os.getenv("SERVER_URL")
-PARQUET_FILE = "chebi_submission_example.parquet"
 
 NPZ_FILE="data/out/ecg_example_submission.npz"
 
