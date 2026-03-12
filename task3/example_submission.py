@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # Load .env file if present
 load_dotenv()
 
-ENDPOINT = "task4"
+ENDPOINT = "task3"
 
 API_TOKEN = os.getenv("TEAM_TOKEN")
 SERVER_URL = os.getenv("SERVER_URL")
@@ -19,7 +19,7 @@ CSV_FILE="data/out/load_example_submission.csv"
 
 
 def generate_mock_submission():
-    predictions = [("deviceId", "year", "month", "target")]
+    predictions = [("deviceId", "year", "month", "prediction")]
 
     devices = (
         "000cc3cb7f030c3d0c481bd0e7cf42ee283012c3cb5bfc93ae46eecc5798f0fe",
@@ -32,6 +32,7 @@ def generate_mock_submission():
         for month in months:
             predictions.append((device, 2025, month, random.random()))
 
+    os.makedirs(os.path.dirname(CSV_FILE), exist_ok=True)
     with open(CSV_FILE, mode="w", newline="") as f:
         writer = csv.writer(f)
         writer.writerows(predictions)
