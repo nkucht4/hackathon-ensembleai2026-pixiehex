@@ -5,34 +5,64 @@ import numpy as np
 from rdkit.Chem import rdFingerprintGenerator
 from rdkit import DataStructs
 
-df = pd.read_parquet('chebi_dataset_train.parquet')
-gen = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
+import pandas as pd
+import numpy as np
+import torch
+import torch.nn.functional as F
+from torch.nn import Linear
+from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader
+from torch_geometric.nn import GCNConv, global_mean_pool
+from rdkit import Chem
 
-def preprocess_smiles(smiles):
+# --- 1. FUNKCJE POMOCNICZE DO CECH ATOMÓW ---
+
+def get_atom_features(atom):
+    """Tworzy wektor cech dla pojedynczego atomu (One-Hot Encoding)."""
+    # Lista najczęstszych atomów w chemii medycznej
+    symbols = ['C', 'N', 'O', 'S', 'F', 'P', 'Cl', 'Br', 'I']
+    symbol = atom.GetSymbol()
+    
+    # One-hot encoding symbolu
+    v = [1 if symbol == s else 0 for s in symbols]
+    # Dodatkowe cechy: stopień, ładunek, hybrydyzacja
+    v.append(atom.GetDegree())
+    v.append(atom.GetFormalCharge())
+    v.append(int(atom.GetIsAromatic()))
+    return v
+
+def smiles_to_graph(smiles, target):
+    """Zamienia SMILES na obiekt grafu PyTorch Geometric."""
     mol = Chem.MolFromSmiles(smiles)
-    
-    if mol is None:
+    if not mol:
         return None
+
+    node_feats = [get_atom_features(atom) for atom in mol.GetAtoms()]
+    x = torch.tensor(node_feats, dtype=torch.float)
+
+    edge_index = []
+    for bond in mol.GetBonds():
+        i = bond.GetBeginAtomIdx()
+        j = bond.GetEndAtomIdx()
+        edge_index.append([i, j])
+        edge_index.append([j, i])
     
-    fp = gen.GetFingerprint(mol)
-    fp_array = np.zeros((0,), dtype=np.int8)
-    DataStructs.ConvertToNumpyArray(fp, fp_array)
-    return fp_array
-def preprocessing():
+    edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
 
-    print("Przetwarzanie cząsteczek...")
-    df['fingerprint'] = df['SMILES'].apply(preprocess_smiles)
+    y = torch.tensor([[target]], dtype=torch.float)
 
-    df = df.dropna(subset=['fingerprint'])
+    return Data(x=x, edge_index=edge_index, y=y)
 
-    # X = np.stack(df['fingerprint'].values)
-    # y = df['target_column'].values
+def preprocessing(df):
+    data_list = []
+    for _, row in df.iterrows():
+        g = smiles_to_graph(row['smiles'], row['target'])
+        if g:
+            data_list.append(g)
+    loader = DataLoader(data_list, batch_size=32, shuffle=True)
 
-    print(f"Kształt: {df.shape}")
-    print(df['fingerprint'].head())
+    return loader
 
-    return df
-
-
+    
 
 
