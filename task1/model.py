@@ -11,22 +11,17 @@ from rdkit import Chem
 class MoleculeGCN(torch.nn.Module):
     def __init__(self, hidden_channels, input_dim):
         super(MoleculeGCN, self).__init__()
-        torch.manual_seed(42)
         self.conv1 = GCNConv(input_dim, hidden_channels)
         self.conv2 = GCNConv(hidden_channels, hidden_channels)
         self.conv3 = GCNConv(hidden_channels, hidden_channels)
-
-        self.lin = Linear(hidden_channels, 1)
+        
+        # WYJŚCIE: 500 neuronów
+        self.lin = Linear(hidden_channels, 500)
 
     def forward(self, x, edge_index, batch):
-        x = self.conv1(x, edge_index)
-        x = x.relu()
-        x = self.conv2(x, edge_index)
-        x = x.relu()
+        x = self.conv1(x, edge_index).relu()
+        x = self.conv2(x, edge_index).relu()
         x = self.conv3(x, edge_index)
-
-        x = global_mean_pool(x, batch) 
-
+        x = global_mean_pool(x, batch)
         x = F.dropout(x, p=0.2, training=self.training)
-        x = self.lin(x)
-        return x
+        return self.lin(x) # Zwracamy logity (bez Sigmoid tutaj!)

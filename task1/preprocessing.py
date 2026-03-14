@@ -31,37 +31,36 @@ def get_atom_features(atom):
     v.append(int(atom.GetIsAromatic()))
     return v
 
-def smiles_to_graph(smiles, target):
-    """Zamienia SMILES na obiekt grafu PyTorch Geometric."""
+def smiles_to_graph(smiles, target_list):
     mol = Chem.MolFromSmiles(smiles)
-    if not mol:
-        return None
+    if not mol: return None
 
     node_feats = [get_atom_features(atom) for atom in mol.GetAtoms()]
     x = torch.tensor(node_feats, dtype=torch.float)
 
     edge_index = []
     for bond in mol.GetBonds():
-        i = bond.GetBeginAtomIdx()
-        j = bond.GetEndAtomIdx()
-        edge_index.append([i, j])
-        edge_index.append([j, i])
+        i, j = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        edge_index.extend([[i, j], [j, i]])
     
     edge_index = torch.tensor(edge_index, dtype=torch.long).t().contiguous()
 
-    y = torch.tensor([[target]], dtype=torch.float)
+    # Y ma teraz kształt [1, 500]
+    y = torch.tensor([target_list], dtype=torch.float)
 
     return Data(x=x, edge_index=edge_index, y=y)
 
 def preprocessing(df):
     data_list = []
+    target_cols = [c for c in df.columns if c.startswith('class_')]
     for _, row in df.iterrows():
-        g = smiles_to_graph(row['smiles'], row['target'])
+        targets = row[target_cols].values.astype(float)
+        g = smiles_to_graph(row['SMILES'], targets)
         if g:
             data_list.append(g)
     loader = DataLoader(data_list, batch_size=32, shuffle=True)
 
-    return loader
+    return loader, data_list
 
     
 
